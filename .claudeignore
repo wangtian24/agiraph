@@ -1,0 +1,55 @@
+# Claude IDE ignore file
+# This file tells Claude which files to ignore when indexing/searching
+# Shared with Cursor IDE (.cursorignore)
+
+# Environment variables - NEVER include API keys
+.env
+.env.local
+.env.*.local
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Testing artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.log
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Large data files (if any)
+*.csv
+*.json.bak
+*.db
+*.sqlite
+*.sqlite3
+
+# Dependencies (if vendorized)
+vendor/
+third_party/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
