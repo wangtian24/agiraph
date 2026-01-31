@@ -5,6 +5,7 @@ from collections import defaultdict, deque
 from typing import Dict, List, Set
 from .models import Node, Plan, NodeStatus
 from .providers.factory import create_provider
+from .prompts import load_prompt, format_prompt
 
 
 class DAGExecutor:
@@ -75,30 +76,38 @@ class DAGExecutor:
             # Create provider
             provider = create_provider(node.provider)
             
-            # Build execution prompt in natural language
-            prompt_parts = [f"Task: {node.description}"]
+            # Build execution prompt using template
+            template = load_prompt("node_execution_user.txt")
             
+            # Build sections
+            output_description_section = ""
             if node.output_description:
-                prompt_parts.append(f"\nWhat you need to produce: {node.output_description}")
+                output_description_section = f"\nWhat you need to produce: {node.output_description}"
             
+            input_description_section = ""
             if node.input_description:
-                prompt_parts.append(f"\nWhat you need as input: {node.input_description}")
+                input_description_section = f"\nWhat you need as input: {node.input_description}"
             
+            inputs_section = ""
             if inputs_text:
-                prompt_parts.append(f"\n\nInputs from previous tasks:\n{inputs_text}")
-            elif node.dependencies:
-                prompt_parts.append("\n\nNote: You have dependencies but their results are not yet available.")
+                inputs_section = f"\n\nInputs from previous tasks:\n{inputs_text}"
             
-            prompt_parts.append("\n\nExecute this task and provide your result in clear, natural language.")
+            note_section = ""
+            if not inputs_text and node.dependencies:
+                note_section = "\n\nNote: You have dependencies but their results are not yet available."
             
-            prompt = "\n".join(prompt_parts)
+            prompt = format_prompt(
+                template,
+                description=node.description,
+                output_description_section=output_description_section,
+                input_description_section=input_description_section,
+                inputs_section=inputs_section,
+                note_section=note_section
+            )
             
-            # Execute with natural language system prompt
-            system_prompt = f"""You are executing the task: {node.name}
-
-Your job is to complete this task and provide the result in clear, natural language.
-Be thorough and complete. Do not use JSON or structured formats unless absolutely necessary.
-Just provide your work and results in natural, readable text."""
+            # Load system prompt template
+            system_template = load_prompt("node_execution_system.txt")
+            system_prompt = format_prompt(system_template, node_name=node.name)
             
             response = await provider.generate(
                 prompt=prompt,

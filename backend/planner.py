@@ -5,6 +5,7 @@ from typing import List
 from .models import Node, Plan, NodeStatus
 from .providers.factory import create_provider
 from .config import Config
+from .prompts import load_prompt, format_prompt
 
 
 def get_planner_system_prompt(available_providers: List[str], forced_provider: str = None, forced_model: str = None) -> str:
@@ -15,49 +16,14 @@ def get_planner_system_prompt(available_providers: List[str], forced_provider: s
     if forced_provider and forced_model:
         provider_constraint = f"\n\nCRITICAL: ALL nodes MUST use provider=\"{forced_provider}\" and model=\"{forced_model}\". Do NOT use any other provider or model."
     
-    return f"""You are an expert task planner for AI agent orchestration. Your job is to break down complex tasks into a Directed Acyclic Graph (DAG) of independent, parallelizable components.
-
-CRITICAL PRINCIPLES:
-1. **Maximize Parallelism**: Split tasks so that as many nodes as possible can run in parallel. Think about what can be done independently.
-2. **Natural Language Communication**: All communication between nodes should be in natural language. Avoid structured schemas unless absolutely necessary.
-3. **Minimal Dependencies**: Only create dependencies when absolutely necessary. If two tasks can run independently, they should have no dependency.
-4. **Atomic Components**: Each node should be a single, well-defined task that can be completed by an AI agent independently.
-5. **Clear Descriptions**: Each node should have a clear description of what it needs as input (if any) and what it will produce as output, all in natural language.
-
-IMPORTANT: You can ONLY use these available providers: {", ".join(available_providers) if available_providers else "none configured"}
-Do NOT use any provider that is not in this list.{provider_constraint}
-
-OUTPUT FORMAT:
-You must respond with a valid JSON object with this exact structure:
-{{
-  "nodes": [
-    {{
-      "id": "node_0",
-      "name": "Task Name",
-      "description": "Detailed description of what this node does and what it will produce",
-      "provider": "{providers_str}",
-      "model": "model_name",
-      "input_description": "Natural language description of what inputs this node needs (if any). Leave empty string if no inputs needed.",
-      "output_description": "Natural language description of what this node will produce",
-      "dependencies": ["node_id1", "node_id2"]  // Empty array if no dependencies
-    }}
-  ],
-  "edges": [
-    {{"from": "node_id", "to": "node_id"}}  // Only include explicit dependencies
-  ]
-}}
-
-EXAMPLES OF GOOD PARALLELIZATION:
-- If task needs research on multiple topics, create separate nodes for each topic (no dependencies)
-- If task needs code generation and documentation, these can be parallel if they don't depend on each other
-- If task needs data processing and visualization, they can be parallel if visualization doesn't need processed data
-
-EXAMPLES OF NECESSARY DEPENDENCIES:
-- Code generation -> Code testing (testing needs the code)
-- Data collection -> Data analysis (analysis needs the data)
-- Multiple research nodes -> Synthesis node (synthesis needs all research results)
-
-Think carefully about dependencies. When in doubt, make nodes independent and parallelizable."""
+    template = load_prompt("planner_system.txt")
+    
+    return format_prompt(
+        template,
+        available_providers=", ".join(available_providers) if available_providers else "none configured",
+        provider_constraint=provider_constraint,
+        providers_str=providers_str
+    )
 
 
 class Planner:
@@ -93,16 +59,13 @@ class Planner:
         if forced_provider and forced_model:
             provider_note = f"\n\nCRITICAL: ALL nodes must use provider=\"{forced_provider}\" and model=\"{forced_model}\". Do not use any other provider or model."
         
-        planning_prompt = f"""Create a detailed execution plan for the following task:
-
-TASK: {user_prompt}
-
-Break this down into a DAG with clear nodes and dependencies. Maximize parallelism where possible.
-Use natural language descriptions for inputs and outputs - avoid structured schemas unless absolutely necessary.
-
-IMPORTANT: Only use providers from this list: {", ".join(self.available_providers) if self.available_providers else "none"}{provider_note}
-
-Respond with ONLY the JSON object, no additional text."""
+        template = load_prompt("planner_user.txt")
+        planning_prompt = format_prompt(
+            template,
+            user_prompt=user_prompt,
+            available_providers=", ".join(self.available_providers) if self.available_providers else "none",
+            provider_note=provider_note
+        )
         
         try:
             response = await self.provider.generate(
@@ -169,10 +132,28 @@ Respond with ONLY the JSON object, no additional text."""
                 )
                 nodes.append(node)
             
+            # Generate a title if not provided in plan_data
+            title = plan_data.get("title")
+            if not title:
+                # Generate a short title from the user prompt
+                title_prompt = f"Generate a short, descriptive title (3-8 words) for this task: {user_prompt}\n\nRespond with ONLY the title, no additional text."
+                try:
+                    title = await self.provider.generate(
+                        prompt=title_prompt,
+                        model=self.model,
+                        system_prompt="You are a title generator. Generate concise, descriptive titles."
+                    )
+                    title = title.strip().strip('"').strip("'")
+                except Exception:
+                    # Fallback to first few words of prompt
+                    words = user_prompt.split()[:6]
+                    title = " ".join(words) + ("..." if len(user_prompt.split()) > 6 else "")
+            
             # Create plan
             plan = Plan(
                 plan_id=str(uuid.uuid4()),
                 user_prompt=user_prompt,
+                title=title,
                 nodes=nodes,
                 edges=plan_data.get("edges", []),
                 status="draft"

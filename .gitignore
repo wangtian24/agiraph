@@ -74,3 +74,19 @@ poetry.lock
 # Logs
 prompts.log
 *.log
+
+# Storage
+storage/
+*.json
+!package.json
+!package-lock.json
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+frontend/.vercel

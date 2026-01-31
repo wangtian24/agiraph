@@ -1,0 +1,4 @@
+Task: {description}
+{output_description_section}{input_description_section}{inputs_section}{note_section}
+
+Execute this task and provide your result in clear, natural language.

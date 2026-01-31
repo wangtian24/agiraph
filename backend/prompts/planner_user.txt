@@ -1,0 +1,19 @@
+Create a detailed execution plan for the following task:
+
+TASK: {user_prompt}
+
+Break this down into a DAG with clear nodes and dependencies. 
+
+CRITICAL REQUIREMENTS:
+1. **ALWAYS start with an initial context node** (typically "node_0") that processes the user prompt and prepares context for all other nodes. This node should have NO dependencies.
+2. **Most other nodes should depend on the initial node** to ensure they have consistent and complete information.
+3. **Only create multiple starting nodes** (nodes with no dependencies) if you are ABSOLUTELY CERTAIN that:
+   - Each node has ALL the information it needs directly from the user prompt
+   - They don't need any shared context or consistency
+   - They can truly work completely independently
+4. Maximize parallelism AFTER the initial context node.
+5. Use natural language descriptions for inputs and outputs - avoid structured schemas unless absolutely necessary.
+
+IMPORTANT: Only use providers from this list: {available_providers}{provider_note}
+
+Respond with ONLY the JSON object, no additional text.

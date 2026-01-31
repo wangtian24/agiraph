@@ -1,0 +1,5 @@
+You are executing the task: {node_name}
+
+Your job is to complete this task and provide the result in clear, natural language.
+Be thorough and complete. Do not use JSON or structured formats unless absolutely necessary.
+Just provide your work and results in natural, readable text.

@@ -16,8 +16,8 @@ except ImportError:
             print(*args)
 
 try:
-    from app.config import Config
-    from app.providers.factory import create_provider
+    from backend.config import Config
+    from backend.providers.factory import create_provider
 except ImportError as e:
     print(f"Error importing modules: {e}")
     print("Make sure you're running from the project root and dependencies are installed.")

@@ -1,110 +1,135 @@
 # AI Agent Orchestration Framework
 
-A proof-of-concept framework for orchestrating multiple AI agents to collaborate on complex tasks through a DAG-based execution plan with clear contracts between nodes.
+A proof-of-concept framework for orchestrating AI agents in a DAG (Directed Acyclic Graph) structure, enabling parallel execution of independent tasks with clear input/output contracts.
 
 ## Features
 
-- **Intelligent Planning**: AI creates a DAG from user prompts, maximizing parallelism
-- **Parallel Execution**: Executes independent nodes simultaneously
-- **Multi-Provider Support**: OpenAI, Anthropic (Claude), Google Gemini, Minimax
-- **Clear Contracts**: Each node has explicit input/output contracts
-- **Interactive CLI**: Text-based interface with DAG visualization
+- **DAG-based Planning**: AI creates execution plans as directed acyclic graphs
+- **Parallel Execution**: Independent nodes execute concurrently
+- **Multi-Provider Support**: OpenAI, Anthropic (Claude), Google Gemini, and Minimax
+- **Web UI**: Simple web interface for creating plans, visualizing DAGs, and monitoring execution
+- **Result Storage**: All execution results are saved to JSON files for later review
+- **Real-time Updates**: WebSocket support for live execution status
 
 ## Setup
 
-1. **Install dependencies:**
+### Prerequisites
 
-   **Using Poetry (recommended):**
-   ```bash
-   # Install Poetry if you haven't already
-   curl -sSL https://install.python-poetry.org | python3 -
-   
-   # Install project dependencies
-   poetry install
-   
-   # Activate the virtual environment
-   poetry shell
-   ```
-   
-   **Or using pip:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-   
-   See [POETRY_USAGE.md](POETRY_USAGE.md) for detailed Poetry commands.
+- Python 3.10+
+- Poetry (for dependency management)
 
-2. **Configure API keys:**
-   Copy `.env.example` to `.env` and fill in your API keys:
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit `.env` with your keys:
-   ```
-   OPENAI_API_KEY=your_key_here
-   ANTHROPIC_API_KEY=your_key_here
-   GOOGLE_API_KEY=your_key_here
-   MINIMAX_API_KEY=your_key_here
-   MINIMAX_GROUP_ID=your_group_id_here
-   ```
-   
-   You only need to configure the providers you want to use.
+### Installation
 
-3. **Run the CLI:**
-   
-   **With Poetry:**
-   ```bash
-   poetry run python main.py
-   # Or if you're in poetry shell:
-   python main.py
-   ```
-   
-   **With pip:**
-   ```bash
-   python main.py
-   ```
+1. Install dependencies:
+```bash
+poetry install
+```
+
+2. Create a `.env` file in the project root with your API keys:
+```env
+OPENAI_API_KEY=your_openai_key
+ANTHROPIC_API_KEY=your_anthropic_key
+GEMINI_API_KEY=your_gemini_key
+MINIMAX_API_KEY=your_minimax_key
+MINIMAX_GROUP_ID=your_group_id  # Optional for Minimax
+```
+
+Only providers with configured API keys will be available.
+
+### Running the Web Server
+
+1. Start the FastAPI backend:
+```bash
+poetry run python run_server.py
+```
+
+Or using uvicorn directly:
+```bash
+poetry run uvicorn backend.api:app --host 0.0.0.0 --port 8000 --reload
+```
+
+2. In a separate terminal, start the Next.js frontend:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+3. Open your browser to `http://localhost:3000`
+
+The Next.js frontend will proxy API requests to the backend running on port 8000.
+
+### Running the CLI
+
+For a text-based interface:
+```bash
+poetry run python main.py
+```
 
 ## Usage
 
-1. Enter a task description when prompted
-2. Review the generated DAG plan
-3. Optionally view detailed node information
-4. Confirm execution
-5. Monitor execution in real-time
-6. View results and logs
+### Web Interface
 
-## Example
+1. **Create a Plan**: Enter a task prompt and select a provider/model
+2. **Review DAG**: Visualize the execution plan with node dependencies
+3. **Execute**: Start execution and monitor progress in real-time
+4. **View Results**: See results for each node, including errors and execution times
+5. **Load Saved Executions**: Review previously saved execution results
 
-```
-Enter your task: Create a Python script that fetches weather data and generates a report
+### CLI Interface
 
-The planner will create a DAG like:
-- node_0: Fetch weather data (no dependencies)
-- node_1: Process weather data (depends on node_0)
-- node_2: Generate report (depends on node_1)
-
-Nodes node_0 can run immediately, then node_1, then node_2.
-```
+The CLI provides an interactive text-based interface:
+- Select a provider and model
+- Enter your task prompt
+- Review the generated DAG plan
+- Execute and monitor progress
+- View final results
 
 ## Architecture
 
-- `app/models.py`: Data structures for nodes, plans, and execution state
-- `app/planner.py`: AI planner that creates DAGs from prompts
-- `app/executor.py`: DAG executor with parallel execution
-- `app/providers/`: AI provider integrations
-- `app/cli.py`: Command-line interface
-- `app/config.py`: Configuration management
+- **`backend/planner.py`**: AI planner that creates DAG plans from user prompts
+- **`backend/executor.py`**: Executes DAG plans with parallel node execution
+- **`backend/api.py`**: FastAPI backend with REST endpoints and WebSocket support
+- **`backend/providers/`**: Multi-provider AI abstraction layer
+- **`backend/models.py`**: Data models for plans, nodes, and execution state
+- **`frontend/`**: Next.js frontend with DAG visualization and markdown rendering
 
-## How It Works
+## Storage
 
-1. **Planning**: The planner uses an AI model to break down tasks into a DAG with clear contracts
-2. **Review**: User reviews the plan structure
-3. **Execution**: The executor runs nodes in parallel waves based on dependencies
-4. **Results**: Aggregated results from all nodes
+Execution results are automatically saved to `storage/` directory as JSON files. Each file contains:
+- Execution metadata (ID, timestamp, status)
+- Original user prompt
+- Node results and execution times
+- Execution logs
 
-## Notes
+## Testing Providers
 
-- The planner is designed to maximize parallelism by minimizing unnecessary dependencies
-- Each node executes independently with clear input/output contracts
-- Failed nodes are logged but don't necessarily stop execution of independent nodes
-- All node communication happens through the contract system
+Test individual provider integrations:
+```bash
+poetry run python test_providers.py
+```
+
+This will test all configured providers with a simple question and display any errors.
+
+## Development
+
+### Prompt Files
+
+All key prompts are stored in `backend/prompts/` directory for easy iteration:
+- `planner_system.txt` - System prompt for the planner AI
+- `planner_user.txt` - User prompt template for planning requests
+- `node_execution_system.txt` - System prompt for node execution
+- `node_execution_user.txt` - User prompt template for node execution
+
+Edit these files directly to iterate on prompts without modifying code.
+
+### Adding a New Provider
+
+1. Create a new provider class in `backend/providers/` inheriting from `AIProvider`
+2. Implement the `generate()` method
+3. Register it in `backend/providers/factory.py`
+4. Add configuration in `backend/config.py`
+
+## License
+
+MIT

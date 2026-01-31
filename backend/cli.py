@@ -228,11 +228,11 @@ async def main():
             print_dag(plan)
             
             # Ask for details
-            if Confirm.ask("\nShow detailed node information?"):
+            if Confirm.ask("\nShow detailed node information?", default=True):
                 print_node_details(plan)
             
             # Confirm execution
-            if not Confirm.ask("\n[bold]Execute this plan?[/bold]"):
+            if not Confirm.ask("\n[bold]Execute this plan?[/bold]", default=True):
                 console.print("[yellow]Plan execution cancelled.[/yellow]")
                 continue
             
@@ -245,11 +245,11 @@ async def main():
             print_execution_status(plan)
             
             # Show results
-            if Confirm.ask("\nShow execution results?"):
+            if Confirm.ask("\nShow execution results?", default=True):
                 print_results(execution_result)
             
             # Show logs
-            if Confirm.ask("\nShow execution logs?"):
+            if Confirm.ask("\nShow execution logs?", default=True):
                 console.print("\n[bold cyan]Execution Logs:[/bold cyan]")
                 for log in execution_result.get("execution_logs", []):
                     console.print(f"  {log}")

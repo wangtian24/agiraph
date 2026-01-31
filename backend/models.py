@@ -37,6 +37,7 @@ class Plan(BaseModel):
     """A complete execution plan with DAG structure."""
     plan_id: str
     user_prompt: str
+    title: Optional[str] = None  # Short title for the plan
     nodes: List[Node]
     edges: List[Dict[str, str]] = Field(default_factory=list)  # [{"from": "node_id", "to": "node_id"}]
     status: str = "draft"  # draft, approved, executing, completed
