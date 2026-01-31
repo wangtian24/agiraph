@@ -20,13 +20,17 @@ class Node(BaseModel):
     description: str
     provider: str  # openai, anthropic, gemini, minimax
     model: str
-    input_contract: Dict[str, Any] = Field(default_factory=dict)
-    output_contract: Dict[str, Any] = Field(default_factory=dict)
+    input_description: str = ""  # Natural language description of what inputs are needed
+    output_description: str = ""  # Natural language description of what will be produced
     dependencies: List[str] = Field(default_factory=list)  # IDs of prerequisite nodes
     status: NodeStatus = NodeStatus.PENDING
-    result: Optional[Dict[str, Any]] = None
+    result: Optional[str] = None  # Natural language result, not structured data
     error: Optional[str] = None
     execution_time: Optional[float] = None
+    
+    # Legacy fields for backward compatibility
+    input_contract: Dict[str, Any] = Field(default_factory=dict)
+    output_contract: Dict[str, Any] = Field(default_factory=dict)
 
 
 class Plan(BaseModel):

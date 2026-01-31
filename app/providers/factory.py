@@ -33,9 +33,11 @@ def create_provider(provider_name: str, **kwargs) -> Optional[AIProvider]:
     elif provider_name == "minimax":
         api_key = kwargs.get("api_key") or Config.MINIMAX_API_KEY
         group_id = kwargs.get("group_id") or Config.MINIMAX_GROUP_ID
-        if not api_key or not group_id:
-            raise ValueError("Minimax API key or Group ID not configured")
-        return MinimaxProvider(api_key, group_id)
+        if not api_key:
+            raise ValueError("Minimax API key not configured")
+        # group_id is not needed for Anthropic-compatible API (used for M2.1 models)
+        # but kept for backward compatibility
+        return MinimaxProvider(api_key, group_id if group_id else None)
     
     else:
         raise ValueError(f"Unknown provider: {provider_name}")

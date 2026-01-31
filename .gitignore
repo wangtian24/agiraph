@@ -70,3 +70,7 @@ dmypy.json
 # Poetry
 poetry.lock
 .poetry/
+
+# Logs
+prompts.log
+*.log

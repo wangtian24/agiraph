@@ -1,87 +1,109 @@
-"""Minimax provider implementation."""
-import httpx
+"""Minimax provider implementation using Anthropic SDK.
+Based on official Minimax API documentation:
+https://platform.minimax.io/docs/guides/text-generation
+
+Uses Anthropic SDK with custom base URL as recommended by Minimax.
+"""
+import os
+import anthropic
+import asyncio
 from typing import Optional
 from .base import AIProvider
 
 
 class MinimaxProvider(AIProvider):
-    """Minimax API provider."""
+    """Minimax API provider using Anthropic-compatible API."""
     
-    def __init__(self, api_key: str, group_id: str):
+    def __init__(self, api_key: str, group_id: Optional[str] = None):
         super().__init__(api_key, group_id=group_id)
+        self.api_key = api_key
         self.group_id = group_id
-        self.base_url = "https://api.minimax.chat/v1/text/chatcompletion_pro"
+        # Use Anthropic SDK with Minimax base URL as per official documentation
+        # https://platform.minimax.io/docs/guides/text-generation
+        self.client = anthropic.Anthropic(
+            api_key=api_key,
+            base_url="https://api.minimax.io/anthropic"
+        )
     
     async def generate(self, prompt: str, model: str, system_prompt: Optional[str] = None, **kwargs) -> str:
-        """Generate response using Minimax API."""
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
+        """Generate response using Minimax API via Anthropic SDK.
         
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                self.base_url,
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "group_id": self.group_id,
-                    **kwargs
-                },
-                timeout=60.0
+        Follows the exact pattern from:
+        https://platform.minimax.io/docs/guides/text-generation
+        """
+        # Build messages in Anthropic format as shown in documentation
+        messages = [{
+            "role": "user",
+            "content": [{
+                "type": "text",
+                "text": prompt
+            }]
+        }]
+        
+        # Prepare parameters
+        params = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": kwargs.get("max_tokens", 4096),
+            **{k: v for k, v in kwargs.items() if k != "max_tokens"}
+        }
+        
+        if system_prompt:
+            params["system"] = system_prompt
+        
+        # Get debug info for error messages
+        debug_mode = os.getenv("MINIMAX_DEBUG", "false").lower() == "true"
+        if debug_mode:
+            api_key_info = f"Full API key: {self.api_key}"
+            group_id_info = f"Group ID: {self.group_id if self.group_id else 'None'}"
+        else:
+            api_key_preview = f"{self.api_key[:8]}...{self.api_key[-4:]}" if len(self.api_key) > 12 else "***"
+            api_key_info = f"API key: {api_key_preview} (set MINIMAX_DEBUG=true to see full key)"
+            group_id_preview = f"{self.group_id[:4]}...{self.group_id[-4:]}" if self.group_id and len(self.group_id) > 8 else (self.group_id or "None")
+            group_id_info = f"Group ID: {group_id_preview} (set MINIMAX_DEBUG=true to see full)"
+        
+        # Call API using Anthropic SDK (run in executor since it's synchronous)
+        loop = asyncio.get_event_loop()
+        try:
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.client.messages.create(**params)
             )
-            response.raise_for_status()
-            
-            # Check if response is valid JSON
-            try:
-                data = response.json()
-            except Exception as e:
-                raise ValueError(f"Minimax API returned invalid JSON: {e}. Response text: {response.text[:500]}")
-            
-            # Debug: log response structure if it's unexpected
-            # Handle different response structures
-            # Check for common response formats
-            if "choices" in data and len(data["choices"]) > 0:
-                choice = data["choices"][0]
-                if "message" in choice and "content" in choice["message"]:
-                    return choice["message"]["content"]
-                elif "text" in choice:
-                    return choice["text"]
-                elif "content" in choice:
-                    return choice["content"]
-            
-            # Alternative structure: direct reply or reply field
-            if "reply" in data:
-                return data["reply"]
-            
-            if "content" in data:
-                return data["content"]
-            
-            if "text" in data:
-                return data["text"]
-            
-            # Check for error in response
-            if "error" in data:
-                error_msg = data.get("error", {}).get("message", str(data.get("error", "Unknown error")))
-                raise ValueError(f"Minimax API error: {error_msg}")
-            
-            # If we can't find the response, raise an error with the actual structure
-            import json
+        except Exception as e:
+            # Handle API errors
+            error_msg = str(e)
             raise ValueError(
-                f"Unexpected Minimax API response structure. "
-                f"Response keys: {list(data.keys())}. "
-                f"Full response (first 500 chars): {json.dumps(data, indent=2)[:500]}"
+                f"Minimax API error: {error_msg}. "
+                f"{api_key_info}, {group_id_info}"
             )
+        
+        # Parse response as shown in documentation
+        # Extract text from content blocks
+        text_parts = []
+        for block in response.content:
+            if block.type == "text":
+                text_parts.append(block.text)
+            elif block.type == "thinking":
+                # Thinking blocks are available but we return text only
+                pass
+        
+        if not text_parts:
+            raise ValueError(
+                f"Minimax API returned no text content. "
+                f"Response content blocks: {len(response.content)}. "
+                f"{api_key_info}, {group_id_info}"
+            )
+        
+        return "\n".join(text_parts)
     
     def get_available_models(self) -> list[str]:
-        """Get available Minimax models."""
+        """Get available Minimax models.
+        
+        According to documentation:
+        https://platform.minimax.io/docs/guides/text-generation
+        """
         return [
-            "abab6.5s",
-            "abab6.5",
-            "abab5.5s",
-            "abab5.5"
+            "MiniMax-M2.1",
+            "MiniMax-M2.1-lightning",
+            "MiniMax-M2"
         ]

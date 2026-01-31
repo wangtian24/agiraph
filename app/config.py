@@ -30,9 +30,9 @@ class Config:
     # Default models per provider
     DEFAULT_MODELS = {
         "openai": "gpt-4o-mini",
-        "anthropic": "claude-3-5-sonnet-20241022",
-        "gemini": "gemini-1.5-pro",
-        "minimax": "abab6.5s"
+        "anthropic": "claude-sonnet-4-5",
+        "gemini": "gemini-3-flash-preview",
+        "minimax": "MiniMax-M2.1"
     }
     
     @classmethod
@@ -53,8 +53,7 @@ class Config:
             "openai": cls.OPENAI_API_KEY is not None and cls.OPENAI_API_KEY.strip() != "",
             "anthropic": cls.ANTHROPIC_API_KEY is not None and cls.ANTHROPIC_API_KEY.strip() != "",
             "gemini": cls.GOOGLE_API_KEY is not None and cls.GOOGLE_API_KEY.strip() != "",
-            "minimax": (cls.MINIMAX_API_KEY is not None and cls.MINIMAX_API_KEY.strip() != "" and
-                       cls.MINIMAX_GROUP_ID is not None and cls.MINIMAX_GROUP_ID.strip() != ""),
+            "minimax": cls.MINIMAX_API_KEY is not None and cls.MINIMAX_API_KEY.strip() != "",
         }
     
     @classmethod

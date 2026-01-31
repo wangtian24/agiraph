@@ -1,6 +1,7 @@
 """Command-line interface for the AI orchestration framework."""
 import asyncio
-import json
+from datetime import datetime
+from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -11,6 +12,68 @@ from .config import Config
 
 
 console = Console()
+
+# Prompt log file
+PROMPT_LOG_FILE = Path(__file__).parent.parent / "prompts.log"
+
+
+def log_prompt(model: str, prompt: str):
+    """Log user prompt to file."""
+    try:
+        timestamp = datetime.now().isoformat()
+        log_entry = f"{timestamp}|{model}|{prompt}\n"
+        
+        with open(PROMPT_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(log_entry)
+    except Exception as e:
+        # Don't fail if logging fails
+        console.print(f"[dim red]Warning: Failed to log prompt: {e}[/dim red]")
+
+
+def select_from_list(items: list, prompt_text: str, default_index: int = 0, item_formatter=None) -> str:
+    """Display numbered list and allow selection by number or name.
+    
+    Args:
+        items: List of items to select from
+        prompt_text: Text to display as prompt
+        default_index: Index of default item (0-based)
+        item_formatter: Optional function(item, index) -> str to format each item display
+    """
+    if not items:
+        raise ValueError("Cannot select from empty list")
+    
+    if len(items) == 1:
+        return items[0]
+    
+    # Display numbered list
+    console.print(f"\n[bold]{prompt_text}:[/bold]")
+    for i, item in enumerate(items, 1):
+        marker = "[green]→[/green]" if i == default_index + 1 else " "
+        if item_formatter:
+            display_text = item_formatter(item, i - 1)
+        else:
+            display_text = str(item)
+        console.print(f"  {marker} [{i}] {display_text}")
+    
+    # Get user input
+    while True:
+        choice = Prompt.ask(f"\nEnter choice [1-{len(items)}] or name", default=str(default_index + 1))
+        
+        # Try to parse as number
+        try:
+            choice_num = int(choice)
+            if 1 <= choice_num <= len(items):
+                return items[choice_num - 1]
+            else:
+                console.print(f"[red]Invalid number. Please enter 1-{len(items)}[/red]")
+                continue
+        except ValueError:
+            # Not a number, try to match by name
+            if choice in items:
+                return choice
+            else:
+                console.print(f"[red]Invalid choice. Please enter a number (1-{len(items)}) or provider name[/red]")
+                continue
 
 
 def print_dag(plan):
@@ -48,14 +111,15 @@ def print_node_details(plan):
     console.print("\n[bold cyan]Node Details:[/bold cyan]")
     
     for node in plan.nodes:
+        input_info = node.input_description if node.input_description else "No inputs needed"
+        output_info = node.output_description if node.output_description else "See description"
+        
         panel_content = f"""
 [bold]Description:[/bold] {node.description}
 
-[bold]Input Contract:[/bold]
-{json.dumps(node.input_contract, indent=2)}
+[bold]Inputs Needed:[/bold] {input_info}
 
-[bold]Output Contract:[/bold]
-{json.dumps(node.output_contract, indent=2)}
+[bold]Outputs Produced:[/bold] {output_info}
 """
         console.print(Panel(panel_content, title=f"[bold]{node.id}: {node.name}[/bold]", border_style="blue"))
 
@@ -97,8 +161,9 @@ def print_results(execution_result):
     console.print("\n[bold green]Execution Results:[/bold green]")
     
     for node_id, result in execution_result.get("node_results", {}).items():
-        panel_content = json.dumps(result, indent=2)
-        console.print(Panel(panel_content, title=f"[bold]Node {node_id} Result[/bold]", border_style="green"))
+        # Result is now natural language, not JSON
+        result_text = result if isinstance(result, str) else str(result)
+        console.print(Panel(result_text, title=f"[bold]Node {node_id} Result[/bold]", border_style="green"))
 
 
 async def main():
@@ -108,28 +173,33 @@ async def main():
     
     # Check available providers
     available = Config.get_available_providers()
-    console.print("\n[bold]Available AI Providers:[/bold]")
-    for provider, is_available in available.items():
-        status = "[green]✓[/green]" if is_available else "[red]✗[/red]"
-        console.print(f"  {status} {provider}")
+    available_providers = [p for p, avail in available.items() if avail]
     
-    if not any(available.values()):
+    if not available_providers:
         console.print("[red]ERROR: No AI providers configured. Please set API keys in .env file.[/red]")
         return
     
-    # Select planner provider
-    available_providers = [p for p, avail in available.items() if avail]
+    # Select planner provider with model names
     if len(available_providers) == 1:
         planner_provider = available_providers[0]
-        console.print(f"\n[green]Using {planner_provider} as planner provider.[/green]")
+        default_model = Config.DEFAULT_MODELS.get(planner_provider, "default")
+        console.print(f"\n[green]Using {planner_provider} (model: {default_model}) as planner provider.[/green]")
     else:
-        planner_provider = Prompt.ask(
-            "\nSelect planner provider",
-            choices=available_providers,
-            default=available_providers[0]
+        # Format function to show provider name with default model
+        def format_provider(provider: str, index: int) -> str:
+            default_model = Config.DEFAULT_MODELS.get(provider, "default")
+            return f"{provider} (model: {default_model})"
+        
+        planner_provider = select_from_list(
+            available_providers,
+            "Select planner provider",
+            default_index=0,
+            item_formatter=format_provider
         )
+        default_model = Config.DEFAULT_MODELS.get(planner_provider, "default")
+        console.print(f"\n[green]Selected: {planner_provider} (model: {default_model})[/green]")
     
-    planner = Planner(provider_name=planner_provider)
+    planner = Planner(provider_name=planner_provider, model=default_model)
     
     while True:
         console.print("\n" + "=" * 60)
@@ -141,10 +211,18 @@ async def main():
             console.print("[yellow]Goodbye![/yellow]")
             break
         
+        # Log the prompt
+        log_prompt(planner_provider, user_prompt)
+        
         try:
-            # Create plan
+            # Create plan - force all nodes to use the same provider/model
             console.print("\n[bold yellow]Creating execution plan...[/bold yellow]")
-            plan = await planner.create_plan(user_prompt)
+            console.print(f"[dim]All nodes will use: {planner_provider} / {default_model}[/dim]")
+            plan = await planner.create_plan(
+                user_prompt,
+                force_provider=planner_provider,
+                force_model=default_model
+            )
             
             # Display plan
             print_dag(plan)
