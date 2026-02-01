@@ -6,7 +6,7 @@ This document tracks all fixes and improvements made to the AI provider implemen
 
 ## Fixed Issues
 
-### 1. OpenAI Provider (`app/providers/openai_provider.py`)
+### 1. OpenAI Provider (`backend/providers/openai_provider.py`)
 **Issues Fixed:**
 - Added validation for empty choices array
 - Added check for missing message in response
@@ -18,7 +18,7 @@ This document tracks all fixes and improvements made to the AI provider implemen
 - Checks that `choice.message` exists
 - Validates that `content` is not None before returning
 
-### 2. Anthropic Provider (`app/providers/anthropic_provider.py`)
+### 2. Anthropic Provider (`backend/providers/anthropic_provider.py`)
 **Issues Fixed:**
 - Added validation for empty content array
 - Added check for text attribute existence
@@ -30,7 +30,7 @@ This document tracks all fixes and improvements made to the AI provider implemen
 - Checks that `first_content.text` exists
 - Validates text is not None
 
-### 3. Gemini Provider (`app/providers/gemini_provider.py`)
+### 3. Gemini Provider (`backend/providers/gemini_provider.py`)
 **Issues Fixed:**
 - Improved API call error handling
 - Better text extraction with multiple fallback patterns
@@ -43,7 +43,7 @@ This document tracks all fixes and improvements made to the AI provider implemen
 - Better error messages showing response type and attributes
 - Handles both `client.models.generate_content` and direct model access
 
-### 4. Minimax Provider (`app/providers/minimax_provider.py`)
+### 4. Minimax Provider (`backend/providers/minimax_provider.py`)
 **Issues Fixed:**
 - Fixed KeyError: 'choices' - now handles multiple response structures
 - Added JSON parsing error handling
@@ -68,7 +68,7 @@ This document tracks all fixes and improvements made to the AI provider implemen
 Run the test script to verify all providers:
 
 ```bash
-python test_providers.py
+poetry run python test_providers.py
 ```
 
 The script will:
