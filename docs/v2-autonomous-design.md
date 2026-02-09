@@ -145,8 +145,19 @@ Full graph visualization deferred to later version.
 
 ## 8. Design Principles
 
-1. **Roles are autonomous.** The coordinator sets direction, not steps.
-2. **Files are truth.** The workspace is the shared state. No hidden in-memory state that matters.
-3. **The runtime is thin.** It's a coordination layer, not an execution engine. Heavy work is remote.
-4. **Node type is pluggable.** API node, Claude Code, future agents — the coordinator doesn't care how a role does its work.
-5. **Humans work this way.** Roles have names, send messages, write documents, check in at meetings. The metaphor is a small team, not a DAG.
+1. **One line to start, thirty lines for full control.** `team("do X")` is the front door. Everything else is progressive disclosure.
+2. **Unix philosophy.** Small files, small functions, no inheritance. ~10 files. Entire codebase readable in 30 minutes.
+3. **Roles are autonomous.** The coordinator sets direction, not steps.
+4. **Files are truth.** The workspace is the shared state. No hidden in-memory state that matters.
+5. **The runtime is thin.** It's a coordination layer, not an execution engine. Heavy work is remote.
+6. **Node type is pluggable.** API node, Claude Code, future agents — the coordinator doesn't care how a role does its work.
+7. **Model freedom.** Any provider with an API key in `.env`. No provider-specific code in the core.
+8. **Humans work this way.** Roles have names, send messages, write documents, check in at meetings. The metaphor is a small team, not a DAG.
+
+---
+
+## 9. Related Documents
+
+- [Detailed Design](./v2-autonomous-detailed.md) — implementation spec, data structures, pseudocode
+- [Competitive Landscape](./v2-competitive-landscape.md) — top 10 competitors, positioning, market trends
+- [User Stories & Progressive API](./v2-user-stories.md) — from 1-line to full control, file structure
