@@ -7,8 +7,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -363,22 +361,3 @@ async def websocket_endpoint(websocket: WebSocket, execution_id: str):
             await asyncio.sleep(1)  # Update every second
     except WebSocketDisconnect:
         pass
-
-
-# Mount static files - serve frontend
-frontend_path = Path(__file__).parent.parent / "frontend"
-if frontend_path.exists():
-    app.mount("/static", StaticFiles(directory=str(frontend_path)), name="static")
-    
-    @app.get("/{path:path}")
-    async def serve_frontend(path: str):
-        """Serve frontend files."""
-        # Don't interfere with API routes
-        if path.startswith("api/") or path.startswith("ws/"):
-            raise HTTPException(status_code=404)
-        if path == "" or path == "index.html" or not path:
-            return FileResponse(str(frontend_path / "index.html"))
-        file_path = frontend_path / path
-        if file_path.exists() and file_path.is_file():
-            return FileResponse(str(file_path))
-        return FileResponse(str(frontend_path / "index.html"))

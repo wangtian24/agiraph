@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="giraffe.png" alt="Agiraph Logo" width="200" />
+</p>
+
 # AI Agent Orchestration Framework
 
 A proof-of-concept framework for orchestrating AI agents in a DAG (Directed Acyclic Graph) structure, enabling parallel execution of independent tasks with clear input/output contracts.
