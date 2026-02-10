@@ -77,13 +77,14 @@ active_executions: Dict[str, Dict] = {}
 
 @app.get("/api/providers")
 async def get_providers():
-    """Get available providers and their default models."""
+    """Get available providers, their default models, and model lists."""
     available = Config.get_available_providers()
     available_providers = [p for p, avail in available.items() if avail]
-    
+
     return {
         "providers": available_providers,
-        "default_models": Config.DEFAULT_MODELS
+        "default_models": Config.DEFAULT_MODELS,
+        "models": Config.PROVIDER_MODELS,
     }
 
 

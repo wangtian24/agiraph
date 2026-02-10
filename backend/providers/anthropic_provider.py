@@ -44,9 +44,10 @@ class AnthropicProvider(AIProvider):
     def get_available_models(self) -> list[str]:
         """Get available Anthropic models."""
         return [
-            "claude-3-5-sonnet-20241022",
-            "claude-3-5-haiku-20241022",
-            "claude-3-opus-20240229",
-            "claude-3-sonnet-20240229",
-            "claude-3-haiku-20240307"
+            "claude-opus-4-6",
+            "claude-sonnet-4-5",
+            "claude-haiku-4-5",
+            "claude-sonnet-4-0",
+            "claude-opus-4-0",
+            "claude-3-7-sonnet-latest",
         ]

@@ -26,13 +26,65 @@ class Config:
     GOOGLE_API_KEY: Optional[str] = os.getenv("GOOGLE_API_KEY")
     MINIMAX_API_KEY: Optional[str] = os.getenv("MINIMAX_API_KEY")
     MINIMAX_GROUP_ID: Optional[str] = os.getenv("MINIMAX_GROUP_ID")
-    
+    OPENROUTER_API_KEY: Optional[str] = os.getenv("OPENROUTER_API_KEY")
+
     # Default models per provider
     DEFAULT_MODELS = {
-        "openai": "gpt-4o-mini",
+        "openai": "gpt-4.1",
         "anthropic": "claude-sonnet-4-5",
         "gemini": "gemini-3-flash-preview",
-        "minimax": "MiniMax-M2.1"
+        "minimax": "MiniMax-M2.1",
+        "openrouter": "openai/gpt-4.1",
+    }
+
+    # Available models per provider
+    PROVIDER_MODELS: Dict[str, List[str]] = {
+        "openai": [
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-4.1-nano",
+            "gpt-4o",
+            "gpt-4o-mini",
+            "o3",
+            "o3-mini",
+            "o4-mini",
+            "o1",
+        ],
+        "anthropic": [
+            "claude-opus-4-6",
+            "claude-sonnet-4-5",
+            "claude-haiku-4-5",
+            "claude-sonnet-4-0",
+            "claude-opus-4-0",
+            "claude-3-7-sonnet-latest",
+        ],
+        "gemini": [
+            "gemini-1.5-pro",
+            "gemini-1.5-flash",
+            "gemini-pro",
+        ],
+        "minimax": [
+            "MiniMax-M2.1",
+            "MiniMax-M2.1-lightning",
+            "MiniMax-M2",
+        ],
+        "openrouter": [
+            "openai/gpt-4.1",
+            "openai/gpt-4.1-mini",
+            "openai/gpt-4.1-nano",
+            "openai/o3",
+            "openai/o3-mini",
+            "openai/o4-mini",
+            "anthropic/claude-opus-4-6",
+            "anthropic/claude-sonnet-4-5",
+            "anthropic/claude-haiku-4-5",
+            "google/gemini-2.5-pro-preview",
+            "google/gemini-2.5-flash-preview",
+            "deepseek/deepseek-r1",
+            "deepseek/deepseek-chat-v3",
+            "meta-llama/llama-4-maverick",
+            "meta-llama/llama-4-scout",
+        ],
     }
     
     @classmethod
@@ -43,6 +95,7 @@ class Config:
             "anthropic": cls.ANTHROPIC_API_KEY,
             "gemini": cls.GOOGLE_API_KEY,
             "minimax": cls.MINIMAX_API_KEY,
+            "openrouter": cls.OPENROUTER_API_KEY,
         }
         return key_map.get(provider.lower())
     
@@ -54,6 +107,7 @@ class Config:
             "anthropic": cls.ANTHROPIC_API_KEY is not None and cls.ANTHROPIC_API_KEY.strip() != "",
             "gemini": cls.GOOGLE_API_KEY is not None and cls.GOOGLE_API_KEY.strip() != "",
             "minimax": cls.MINIMAX_API_KEY is not None and cls.MINIMAX_API_KEY.strip() != "",
+            "openrouter": cls.OPENROUTER_API_KEY is not None and cls.OPENROUTER_API_KEY.strip() != "",
         }
     
     @classmethod

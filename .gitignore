@@ -90,3 +90,6 @@ frontend/.env.development.local
 frontend/.env.test.local
 frontend/.env.production.local
 frontend/.vercel
+
+.be.pid
+.fe.pid

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import Head from 'next/head';
 import ReactFlow, { Node, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
 import ReactMarkdown from 'react-markdown';
@@ -7,6 +8,7 @@ import axios from 'axios';
 interface Provider {
   name: string;
   default_model: string;
+  models: string[];
 }
 
 interface Plan {
@@ -47,11 +49,19 @@ interface ExecutionResult {
   completed_at?: string;
 }
 
+const DEFAULT_PROVIDERS: Provider[] = [
+  { name: 'openai', default_model: 'gpt-4.1', models: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4o', 'gpt-4o-mini', 'o3', 'o3-mini', 'o4-mini', 'o1'] },
+  { name: 'anthropic', default_model: 'claude-sonnet-4-5', models: ['claude-opus-4-6', 'claude-sonnet-4-5', 'claude-haiku-4-5', 'claude-sonnet-4-0', 'claude-opus-4-0', 'claude-3-7-sonnet-latest'] },
+  { name: 'gemini', default_model: 'gemini-3-flash-preview', models: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro'] },
+  { name: 'minimax', default_model: 'MiniMax-M2.1', models: ['MiniMax-M2.1', 'MiniMax-M2.1-lightning', 'MiniMax-M2'] },
+  { name: 'openrouter', default_model: 'openai/gpt-4.1', models: ['openai/gpt-4.1', 'openai/gpt-4.1-mini', 'anthropic/claude-sonnet-4-5', 'google/gemini-2.5-pro-preview', 'deepseek/deepseek-r1'] },
+];
+
 export default function Home() {
   const [prompt, setPrompt] = useState('');
-  const [provider, setProvider] = useState('');
-  const [model, setModel] = useState('');
-  const [availableProviders, setAvailableProviders] = useState<Provider[]>([]);
+  const [provider, setProvider] = useState(DEFAULT_PROVIDERS[0].name);
+  const [model, setModel] = useState(DEFAULT_PROVIDERS[0].default_model);
+  const [availableProviders, setAvailableProviders] = useState<Provider[]>(DEFAULT_PROVIDERS);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [executionId, setExecutionId] = useState<string | null>(null);
   const [executionStatus, setExecutionStatus] = useState<any>(null);
@@ -64,30 +74,27 @@ export default function Home() {
   const [viewingExecutionId, setViewingExecutionId] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Load available providers
+  // Load available providers from backend (updates defaults if backend is running)
   useEffect(() => {
     axios.get('/api/providers')
       .then(response => {
-        const providers = response.data.providers.map((p: string) => ({
+        const modelLists = response.data.models || {};
+        const defaultModels = response.data.default_models || {};
+
+        const allProviderNames = Object.keys(modelLists);
+        if (allProviderNames.length === 0) return;
+
+        const providers: Provider[] = allProviderNames.map((p: string) => ({
           name: p,
-          default_model: response.data.default_models[p] || '',
+          default_model: defaultModels[p] || (modelLists[p] && modelLists[p][0]) || '',
+          models: modelLists[p] || [defaultModels[p] || ''],
         }));
         setAvailableProviders(providers);
-        if (providers.length > 0) {
-          setProvider(providers[0].name);
-          setModel(providers[0].default_model);
-        }
+        setProvider(providers[0].name);
+        setModel(providers[0].default_model);
       })
       .catch(() => {
-        // Fallback
-        setAvailableProviders([
-          { name: 'openai', default_model: 'gpt-4o-mini' },
-          { name: 'anthropic', default_model: 'claude-sonnet-4-5' },
-          { name: 'gemini', default_model: 'gemini-3-flash-preview' },
-          { name: 'minimax', default_model: 'MiniMax-M2.1' },
-        ]);
-        setProvider('openai');
-        setModel('gpt-4o-mini');
+        // Keep defaults - already set in initial state
       });
   }, []);
 
@@ -264,8 +271,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-dark-bg text-dark-text">
+      <Head>
+        <title>Agiraph</title>
+      </Head>
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <h1 className="text-4xl font-bold text-center mb-8">AI Agent Orchestration Framework</h1>
+        <h1 className="text-4xl font-bold text-center mb-8">Agiraph</h1>
 
         {/* Tab Navigation */}
         <div className="flex gap-2 mb-6 border-b border-dark-border">
@@ -330,13 +340,17 @@ export default function Home() {
                   ))}
                 </select>
                 <span className="text-sm text-dark-text-muted self-center">-</span>
-                <input
-                  type="text"
+                <select
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder="model"
                   className="flex-1 bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                >
+                  {(availableProviders.find(p => p.name === provider)?.models || []).map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             <button
