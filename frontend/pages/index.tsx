@@ -107,7 +107,7 @@ export default function Home() {
   useEffect(() => {
     if (executionId && !wsRef.current) {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host.replace(':3000', ':8000')}/ws/${executionId}`;
+      const wsUrl = `${protocol}//${window.location.host.replace(':3033', ':8088')}/ws/${executionId}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 

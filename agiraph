@@ -2,8 +2,8 @@
 set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-BE_PORT=8000
-FE_PORT=3000
+BE_PORT=8088
+FE_PORT=3033
 BE_PID_FILE="$DIR/.be.pid"
 FE_PID_FILE="$DIR/.fe.pid"
 
@@ -67,6 +67,22 @@ do_kill() {
   done
 }
 
+do_fe() {
+  echo "Starting frontend (foreground)..."
+  echo "  http://localhost:$FE_PORT"
+  echo ""
+  cd "$DIR/frontend"
+  exec npm run dev
+}
+
+do_be() {
+  echo "Starting backend (foreground)..."
+  echo "  http://localhost:$BE_PORT"
+  echo ""
+  cd "$DIR"
+  exec poetry run uvicorn backend.api:app --host 0.0.0.0 --port "$BE_PORT" --reload
+}
+
 do_status() {
   for label_pid in "Backend:$BE_PID_FILE:$BE_PORT" "Frontend:$FE_PID_FILE:$FE_PORT"; do
     label="${label_pid%%:*}"
@@ -101,8 +117,14 @@ case "${1:-}" in
       do_start
     fi
     ;;
+  fe)
+    do_fe
+    ;;
+  be)
+    do_be
+    ;;
   *)
-    echo "Usage: agiraph [start|kill|status]"
+    echo "Usage: agiraph [start|kill|status|fe|be]"
     exit 1
     ;;
 esac
