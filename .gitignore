@@ -77,9 +77,15 @@ prompts.log
 
 # Storage
 storage/
+
+# Agent runtime data (created at runtime, not committed)
+agents/
+
+# JSON files (except package manifests and config)
 *.json
 !package.json
 !package-lock.json
+!tsconfig.json
 
 # Next.js
 frontend/.next/
