@@ -22,11 +22,7 @@ The graph of work **emerges** as the agent runs — it's not planned upfront.
 ### 1. Install (Python backend)
 
 ```bash
-# Create and activate a virtual environment with poetry
 poetry install
-
-# Activate the venv (or prefix commands with `poetry run`)
-poetry shell
 ```
 
 ### 2. Install (Frontend)
@@ -54,8 +50,6 @@ BRAVE_API_KEY=your-brave-key
 
 ```bash
 poetry run python -m agiraph.server
-# or if you're in `poetry shell`:
-python -m agiraph.server
 ```
 
 Server runs at `http://localhost:8000`.
