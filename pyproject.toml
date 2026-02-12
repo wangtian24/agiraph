@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "agiraph"
 version = "2.0.0"
-description = "Agiraph v2-A — Autonomous AI Agent Framework with Emergent Graph Collaboration"
+description = "Agiraph — Autonomous AI Agent Framework with Emergent Graph Collaboration"
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
 packages = [{include = "agiraph"}]

@@ -2,138 +2,217 @@
   <img src="giraffe.png" alt="Agiraph Logo" width="200" />
 </p>
 
-# AI Agent Orchestration Framework
+# Agiraph
 
-A proof-of-concept framework for orchestrating AI agents in a DAG (Directed Acyclic Graph) structure, enabling parallel execution of independent tasks with clear input/output contracts.
+Autonomous AI agent framework with emergent graph collaboration. One agent, one goal — it self-organizes, spawns workers, accumulates knowledge, and only bothers humans when it has to.
 
-## Features
+## What It Does
 
-- **DAG-based Planning**: AI creates execution plans as directed acyclic graphs
-- **Parallel Execution**: Independent nodes execute concurrently
-- **Multi-Provider Support**: OpenAI, Anthropic (Claude), Google Gemini, and Minimax
-- **Web UI**: Simple web interface for creating plans, visualizing DAGs, and monitoring execution
-- **Result Storage**: All execution results are saved to JSON files for later review
-- **Real-time Updates**: WebSocket support for live execution status
+Give an agent a goal. It figures out the rest:
 
-## Setup
+- **Simple tasks** — the coordinator works alone, using tools directly
+- **Complex tasks** — spawns a team of workers, assigns nodes, reconvenes when they're done
+- **Research tasks** — parallel web search, synthesis, structured reports
+- **Coding tasks** — can launch autonomous agents (Claude Code CLI) as workers
 
-### Prerequisites
+The graph of work **emerges** as the agent runs — it's not planned upfront.
 
-- Python 3.10+
-- Poetry (for dependency management)
+## Quick Start
 
-### Installation
+### 1. Install (Python backend)
 
-1. Install dependencies:
 ```bash
+# Create and activate a virtual environment with poetry
 poetry install
+
+# Activate the venv (or prefix commands with `poetry run`)
+poetry shell
 ```
 
-2. Create a `.env` file in the project root with your API keys:
+### 2. Install (Frontend)
+
+```bash
+cd frontend && npm install && cd ..
+```
+
+### 3. Configure API Keys
+
+Create a `.env` file in the project root:
+
 ```env
-OPENAI_API_KEY=your_openai_key
-ANTHROPIC_API_KEY=your_anthropic_key
-GEMINI_API_KEY=your_gemini_key
-MINIMAX_API_KEY=your_minimax_key
-MINIMAX_GROUP_ID=your_group_id  # Optional for Minimax
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+
+# For web search (pick one)
+BRAVE_API_KEY=your-brave-key
+# SERPER_API_KEY=your-serper-key
+
+# Optional
+# OPENAI_API_KEY=sk-your-key
 ```
 
-Only providers with configured API keys will be available.
+### 4. Start the Backend
 
-### Running the Web Server
-
-1. Start the FastAPI backend:
 ```bash
-poetry run python run_server.py
+poetry run python -m agiraph.server
+# or if you're in `poetry shell`:
+python -m agiraph.server
 ```
 
-Or using uvicorn directly:
+Server runs at `http://localhost:8000`.
+
+### 5. Start the Frontend
+
 ```bash
-poetry run uvicorn backend.api:app --host 0.0.0.0 --port 8000 --reload
+cd frontend && npm run dev
 ```
 
-2. In a separate terminal, start the Next.js frontend:
+UI runs at `http://localhost:3000`.
+
+### 6. Create an Agent
+
+**Via the UI:** Open `http://localhost:3000`, type a goal, pick a model, click Create.
+
+**Via curl:**
+
 ```bash
-cd frontend
-npm install
-npm run dev
+curl -X POST http://localhost:8000/agents \
+  -H "Content-Type: application/json" \
+  -d '{"goal": "What are the top 3 AI hardware companies? Research each and produce a short comparison.", "model": "anthropic/claude-sonnet-4-5"}'
 ```
 
-3. Open your browser to `http://localhost:3000`
+### 7. Watch It Work
 
-The Next.js frontend will proxy API requests to the backend running on port 8000.
+- **UI:** Click into the agent — see the chat, work board, files, and live events
+- **API:** Poll `GET /agents/{id}` for status, `/agents/{id}/events` for events, `/agents/{id}/board` for work nodes
+- **WebSocket:** Connect to `ws://localhost:8000/agents/{id}/events` for real-time streaming
 
-### Running the CLI
+## Try These
 
-For a text-based interface:
+**Simple (single agent, no workers):**
 ```bash
-poetry run python main.py
+curl -X POST http://localhost:8000/agents \
+  -H "Content-Type: application/json" \
+  -d '{"goal": "Write a Python script that computes the first 20 Fibonacci numbers. Save it to a file and run it to verify."}'
 ```
 
-## Usage
-
-### Web Interface
-
-1. **Create a Plan**: Enter a task prompt and select a provider/model
-2. **Review DAG**: Visualize the execution plan with node dependencies
-3. **Execute**: Start execution and monitor progress in real-time
-4. **View Results**: See results for each node, including errors and execution times
-5. **Load Saved Executions**: Review previously saved execution results
-
-### CLI Interface
-
-The CLI provides an interactive text-based interface:
-- Select a provider and model
-- Enter your task prompt
-- Review the generated DAG plan
-- Execute and monitor progress
-- View final results
-
-## Architecture
-
-- **`backend/planner.py`**: AI planner that creates DAG plans from user prompts
-- **`backend/executor.py`**: Executes DAG plans with parallel node execution
-- **`backend/api.py`**: FastAPI backend with REST endpoints and WebSocket support
-- **`backend/providers/`**: Multi-provider AI abstraction layer
-- **`backend/models.py`**: Data models for plans, nodes, and execution state
-- **`frontend/`**: Next.js frontend with DAG visualization and markdown rendering
-
-## Storage
-
-Execution results are automatically saved to `storage/` directory as JSON files. Each file contains:
-- Execution metadata (ID, timestamp, status)
-- Original user prompt
-- Node results and execution times
-- Execution logs
-
-## Testing Providers
-
-Test individual provider integrations:
+**Multi-agent research:**
 ```bash
-poetry run python test_providers.py
+curl -X POST http://localhost:8000/agents \
+  -H "Content-Type: application/json" \
+  -d '{"goal": "Research the competitive landscape of AI hardware. Spawn 3 researchers for NVIDIA, AMD, and Intel in parallel, then synthesize into a comparison report."}'
 ```
 
-This will test all configured providers with a simple question and display any errors.
+**Human-in-the-loop:**
+```bash
+# Create agent that needs human input
+curl -X POST http://localhost:8000/agents \
+  -H "Content-Type: application/json" \
+  -d '{"goal": "Set up a database for our project. Ask the human which database to use before proceeding."}'
 
-## Development
+# When the agent asks, respond:
+curl -X POST http://localhost:8000/agents/{id}/respond \
+  -H "Content-Type: application/json" \
+  -d '{"response": "PostgreSQL"}'
+```
 
-### Prompt Files
+**Nudge a running agent:**
+```bash
+curl -X POST http://localhost:8000/agents/{id}/send \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Also include Qualcomm in the comparison"}'
+```
 
-All key prompts are stored in `backend/prompts/` directory for easy iteration:
-- `planner_system.txt` - System prompt for the planner AI
-- `planner_user.txt` - User prompt template for planning requests
-- `node_execution_system.txt` - System prompt for node execution
-- `node_execution_user.txt` - User prompt template for node execution
+## How It Works
 
-Edit these files directly to iterate on prompts without modifying code.
+```
+Goal → Coordinator (ReAct loop)
+          │
+          ├── works alone (simple tasks)
+          │
+          └── spawns workers (complex tasks)
+                ├── Worker A (harnessed: API-driven ReAct loop)
+                ├── Worker B (harnessed: different model)
+                └── Worker C (autonomous: Claude Code subprocess)
+                      │
+                      └── sub-workers (recursive spawning)
+```
 
-### Adding a New Provider
+**Two node types:**
+- **Harnessed** — we manage the loop (prompt → LLM → tool calls → repeat)
+- **Autonomous** — external agent (Claude Code CLI) runs its own loop
 
-1. Create a new provider class in `backend/providers/` inheriting from `AIProvider`
-2. Implement the `generate()` method
-3. Register it in `backend/providers/factory.py`
-4. Add configuration in `backend/config.py`
+**Two game modes:**
+- **Finite** — bounded task, agent exits when done
+- **Infinite** — ongoing purpose, agent runs in cycles
 
-## License
+## API Reference
 
-MIT
+| Endpoint | Method | Description |
+|---|---|---|
+| `/agents` | POST | Create a new agent |
+| `/agents` | GET | List all agents |
+| `/agents/{id}` | GET | Agent status |
+| `/agents/{id}` | DELETE | Stop and remove |
+| `/agents/{id}/send` | POST | Send message (human → agent) |
+| `/agents/{id}/respond` | POST | Respond to ask_human question |
+| `/agents/{id}/conversation` | GET | Chat history |
+| `/agents/{id}/board` | GET | Work nodes and status |
+| `/agents/{id}/board/{node_id}` | GET | Single node detail |
+| `/agents/{id}/workers` | GET | Active workers |
+| `/agents/{id}/workspace` | GET | Browse workspace files |
+| `/agents/{id}/memory` | GET | Browse memory files |
+| `/agents/{id}/events` | GET | Recent events (polling) |
+| `/agents/{id}/events` | WS | Live event stream |
+
+## Project Structure
+
+```
+agiraph/                    # Python package
+├── agent.py                # Agent — top-level entity
+├── coordinator.py          # Coordinator — always-live ReAct loop
+├── worker.py               # Harnessed + Autonomous worker execution
+├── scheduler.py            # Work board management, node assignment
+├── models.py               # Data structures (WorkNode, Worker, Board, etc.)
+├── message_bus.py          # Inter-entity messaging
+├── events.py               # Append-only event log + WebSocket
+├── server.py               # FastAPI server (15 endpoints)
+├── config.py               # Configuration from .env
+├── tools/
+│   ├── definitions.py      # 25 built-in tool definitions
+│   ├── implementations.py  # Tool logic (bash, web_search, publish, etc.)
+│   ├── registry.py         # Tool dispatch
+│   ├── context.py          # Runtime context for tools
+│   └── setup.py            # Wires definitions to implementations
+└── providers/
+    ├── anthropic_provider.py
+    ├── openai_provider.py
+    └── text_fallback.py    # For models without native tool calling
+
+frontend/                   # Next.js + TypeScript + Tailwind
+├── src/app/page.tsx        # Home — agent list + create form
+├── src/app/agents/[id]/    # Agent detail — Slack-like entity view
+├── src/hooks/useAgent.ts   # Polling + WebSocket hook
+└── src/lib/api.ts          # API client
+
+tests/                      # 40 unit tests
+```
+
+## Running Tests
+
+```bash
+# Unit tests (no API keys needed)
+poetry run pytest tests/ -v
+
+# All 40 should pass
+```
+
+See `tests/TEST_HANDBOOK.md` for integration testing steps.
+
+## Supported Models
+
+| Provider | Models |
+|---|---|
+| Anthropic | claude-sonnet-4-5, claude-opus-4-6, claude-haiku-4-5 |
+| OpenAI | gpt-4o, o3-mini |
+
+Use the format `provider/model` when creating agents (e.g., `anthropic/claude-sonnet-4-5`).
