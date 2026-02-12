@@ -4,12 +4,24 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AgentSummary, createAgent, listAgents, deleteAgent } from "@/lib/api";
 
+const ALL_MODELS = [
+  { id: "anthropic/claude-sonnet-4-5", label: "Claude Sonnet 4.5", provider: "Anthropic" },
+  { id: "anthropic/claude-opus-4-6", label: "Claude Opus 4.6", provider: "Anthropic" },
+  { id: "anthropic/claude-haiku-4-5", label: "Claude Haiku 4.5", provider: "Anthropic" },
+  { id: "openai/gpt-4o", label: "GPT-4o", provider: "OpenAI" },
+  { id: "openai/gpt-4.1", label: "GPT-4.1", provider: "OpenAI" },
+  { id: "openai/o3-mini", label: "o3-mini", provider: "OpenAI" },
+  { id: "claude-code/sonnet", label: "Claude Code (Sonnet)", provider: "Claude Code" },
+  { id: "claude-code/opus", label: "Claude Code (Opus)", provider: "Claude Code" },
+  { id: "claude-code/haiku", label: "Claude Code (Haiku)", provider: "Claude Code" },
+];
+
 export default function Home() {
   const router = useRouter();
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [goal, setGoal] = useState("");
   const [model, setModel] = useState("anthropic/claude-sonnet-4-5");
-  const [mode, setMode] = useState("finite");
+  const mode = "finite"; // Simplified — always finite
   const [creating, setCreating] = useState(false);
 
   const refresh = async () => {
@@ -60,7 +72,7 @@ export default function Home() {
 
       {/* Create Agent */}
       <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-6 mb-8">
-        <h2 className="text-lg font-semibold mb-4 text-gray-800">New Agent</h2>
+        <h2 className="text-lg font-semibold mb-4 text-gray-800">New Task</h2>
         <textarea
           className="w-full bg-white border border-gray-300 rounded-lg p-3 text-sm mb-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-800 placeholder-gray-400"
           rows={3}
@@ -71,32 +83,34 @@ export default function Home() {
             if (e.key === "Enter" && e.metaKey) handleCreate();
           }}
         />
+        {/* Model selector */}
+        <div className="mb-3">
+          <div className="text-xs font-medium text-gray-500 mb-2">Coordinator Model</div>
+          <div className="flex flex-wrap gap-2">
+            {ALL_MODELS.map((m) => (
+              <button
+                key={m.id}
+                className={`px-3 py-1.5 rounded-lg text-xs border transition-all ${
+                  model === m.id
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"
+                }`}
+                onClick={() => setModel(m.id)}
+              >
+                <span className="font-medium">{m.label}</span>
+                <span className="ml-1 text-[10px] opacity-60">{m.provider}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex gap-3 items-center">
-          <select
-            className="bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-700"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-          >
-            <option value="anthropic/claude-sonnet-4-5">Claude Sonnet 4.5</option>
-            <option value="anthropic/claude-opus-4-6">Claude Opus 4.6</option>
-            <option value="anthropic/claude-haiku-4-5">Claude Haiku 4.5</option>
-            <option value="openai/gpt-4o">GPT-4o</option>
-            <option value="openai/o3-mini">o3-mini</option>
-          </select>
-          <select
-            className="bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-700"
-            value={mode}
-            onChange={(e) => setMode(e.target.value)}
-          >
-            <option value="finite">Finite (bounded task)</option>
-            <option value="infinite">Infinite (ongoing)</option>
-          </select>
           <button
             className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm font-medium text-white disabled:opacity-50"
             onClick={handleCreate}
             disabled={creating || !goal.trim()}
           >
-            {creating ? "Creating..." : "Create Agent"}
+            {creating ? "Starting..." : "Go"}
           </button>
         </div>
       </div>
@@ -117,14 +131,13 @@ export default function Home() {
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`w-2 h-2 rounded-full ${statusColor[a.status] || "bg-gray-400"}`} />
                   <span className="text-sm font-medium text-gray-600">{a.status}</span>
-                  <span className="text-xs text-gray-400">{a.mode}</span>
+                  <span className="text-xs text-gray-400">{a.model}</span>
                   <span className="text-xs text-gray-300">{a.id}</span>
                 </div>
                 <p className="text-sm text-gray-800">{a.goal}</p>
                 <div className="flex gap-4 mt-2 text-xs text-gray-400">
                   <span>{a.node_count} nodes</span>
                   <span>{a.worker_count} workers</span>
-                  <span>{a.model}</span>
                 </div>
               </div>
               <button

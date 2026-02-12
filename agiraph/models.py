@@ -48,6 +48,7 @@ class ModelResponse:
     tool_calls: list[ToolCall] = field(default_factory=list)
     usage: TokenUsage = field(default_factory=TokenUsage)
     raw: Any = None
+    content_blocks: list[dict] | None = None  # Raw API content blocks for multi-turn (web search)
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +135,8 @@ class Worker:
 
     id: str = field(default_factory=generate_id)
     name: str = ""
-    type: str = "harnessed"  # harnessed | autonomous
+    role: str = "Generalist"  # Coordinator, Researcher, Analyzer, Programmer, Generalist, etc.
+    type: str = "harnessed"  # harnessed | autonomous | claude_code
     model: str | None = None
     agent_command: str | None = None
     status: str = "idle"  # idle | busy | waiting_for_human | stopped
@@ -146,6 +148,7 @@ class Worker:
         return {
             "id": self.id,
             "name": self.name,
+            "role": self.role,
             "type": self.type,
             "model": self.model,
             "status": self.status,

@@ -8,7 +8,7 @@ from typing import Any
 
 import anthropic
 
-from agiraph.config import ANTHROPIC_API_KEY
+from agiraph.config import ANTHROPIC_API_KEY, NATIVE_SEARCH_MAX_USES
 from agiraph.models import ModelResponse, ToolCall, ToolDef, TokenUsage
 from agiraph.providers.base import ProviderAdapter
 
@@ -56,7 +56,14 @@ class AnthropicAdapter(ProviderAdapter):
             kwargs["system"] = system
 
         if tools:
-            kwargs["tools"] = self.format_tools(tools)
+            formatted_tools = self.format_tools(tools)
+            # Add native web search — all Anthropic models support it
+            formatted_tools.append({
+                "type": "web_search_20250305",
+                "name": "web_search",
+                "max_uses": NATIVE_SEARCH_MAX_USES,
+            })
+            kwargs["tools"] = formatted_tools
 
         try:
             raw = await self.client.messages.create(**kwargs)
@@ -90,19 +97,25 @@ class AnthropicAdapter(ProviderAdapter):
                     ],
                 })
             elif role == "assistant":
-                content = msg.get("content", "")
-                tool_calls = msg.get("tool_calls", [])
-                blocks: list[dict] = []
-                if content:
-                    blocks.append({"type": "text", "text": content})
-                for tc in tool_calls:
-                    blocks.append({
-                        "type": "tool_use",
-                        "id": tc.get("id", "unknown"),
-                        "name": tc.get("name", ""),
-                        "input": tc.get("args", tc.get("input", {})),
-                    })
-                formatted.append({"role": "assistant", "content": blocks if blocks else content or ""})
+                # If we stored raw content blocks (e.g., from web search turn),
+                # pass them through directly to preserve encrypted search results.
+                raw_blocks = msg.get("_content_blocks")
+                if raw_blocks:
+                    formatted.append({"role": "assistant", "content": raw_blocks})
+                else:
+                    content = msg.get("content", "")
+                    tool_calls = msg.get("tool_calls", [])
+                    blocks: list[dict] = []
+                    if content:
+                        blocks.append({"type": "text", "text": content})
+                    for tc in tool_calls:
+                        blocks.append({
+                            "type": "tool_use",
+                            "id": tc.get("id", "unknown"),
+                            "name": tc.get("name", ""),
+                            "input": tc.get("args", tc.get("input", {})),
+                        })
+                    formatted.append({"role": "assistant", "content": blocks if blocks else content or ""})
             else:
                 formatted.append({"role": "user", "content": str(msg.get("content", ""))})
         return formatted
@@ -110,15 +123,33 @@ class AnthropicAdapter(ProviderAdapter):
     def _parse_response(self, raw: Any) -> ModelResponse:
         tool_calls = []
         text_parts = []
+        has_search = False
+
         for block in raw.content:
             if block.type == "tool_use":
                 tool_calls.append(ToolCall(name=block.name, args=block.input, id=block.id))
             elif block.type == "text":
                 text_parts.append(block.text)
+            elif block.type in ("server_tool_use", "web_search_tool_result"):
+                has_search = True
+                if block.type == "server_tool_use":
+                    query = getattr(block, "input", {}).get("query", "") if hasattr(block, "input") else ""
+                    logger.info(f"[WebSearch] query: {query}")
+
+        # Store raw content blocks for multi-turn if web search was used
+        content_blocks = None
+        if has_search:
+            content_blocks = []
+            for block in raw.content:
+                try:
+                    content_blocks.append(block.model_dump())
+                except Exception:
+                    content_blocks.append({"type": getattr(block, "type", "unknown")})
 
         return ModelResponse(
             text="\n".join(text_parts) if text_parts else None,
             tool_calls=tool_calls,
             usage=TokenUsage(raw.usage.input_tokens, raw.usage.output_tokens),
             raw=raw,
+            content_blocks=content_blocks,
         )

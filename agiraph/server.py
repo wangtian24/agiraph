@@ -90,12 +90,17 @@ async def get_agent(agent_id: str) -> dict:
 async def delete_agent(agent_id: str) -> dict:
     """Stop and remove an agent."""
     agent = _get_agent(agent_id)
-    agent.status = "completed"
-    # Cancel any running tasks
-    for task in agent._running_tasks.values():
-        task.cancel()
+    await agent.stop()
     agent_registry.pop(agent_id, None)
     return {"status": "deleted", "id": agent_id}
+
+
+@app.post("/agents/{agent_id}/stop")
+async def stop_agent(agent_id: str) -> dict:
+    """Stop the agent — kill coordinator and workers, keep state for inspection."""
+    agent = _get_agent(agent_id)
+    await agent.stop()
+    return {"status": "stopped", "id": agent_id}
 
 
 # ---------------------------------------------------------------------------

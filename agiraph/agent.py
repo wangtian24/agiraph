@@ -68,6 +68,8 @@ class Agent:
 
         # Running worker tasks
         self._running_tasks: dict[str, asyncio.Task] = {}
+        self._coordinator: Coordinator | None = None
+        self._coordinator_task: asyncio.Task | None = None
 
         # Register standard entities on message bus
         self.message_bus.register("coordinator")
@@ -106,8 +108,32 @@ class Agent:
 
     async def start(self):
         """Start the agent — launches the coordinator loop."""
-        coordinator = Coordinator(self)
-        await coordinator.run()
+        self._coordinator = Coordinator(self)
+        await self._coordinator.run()
+
+    async def stop(self):
+        """Stop workers but keep coordinator alive for continued human interaction."""
+        logger.info(f"Agent {self.id} stopping...")
+        self.status = "stopped"
+
+        # Cancel all running worker tasks
+        for node_id, task in list(self._running_tasks.items()):
+            task.cancel()
+            logger.info(f"Cancelled worker task for node {node_id}")
+        self._running_tasks.clear()
+
+        # Set all busy workers to idle
+        for worker in self.worker_pool.workers.values():
+            if worker.status == "busy":
+                worker.status = "idle"
+
+        # Signal coordinator to pause (NOT finish) — it will resume when human speaks
+        if self._coordinator:
+            self._coordinator._stopped = True
+            self._coordinator._human_wakeup.set()
+
+        self.event_bus.emit_simple("agent.stopped", self.id)
+        self.updated_at = time.time()
 
     async def send_message(self, message: str, to: str = "coordinator") -> str:
         """Human sends a message to the agent."""
@@ -119,6 +145,11 @@ class Agent:
         })
         self.message_bus.send("human", to, message)
         self.updated_at = time.time()
+
+        # Wake up coordinator so it processes the message quickly
+        if self._coordinator:
+            self._coordinator.notify_human_message()
+
         return f"Message sent to {to}."
 
     async def respond_to_question(self, response: str):

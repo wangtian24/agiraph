@@ -61,9 +61,26 @@ async def impl_publish(context: ToolContext, summary: str) -> str:
     if context.worker:
         context.worker.status = "idle"
 
-    # Emit event
-    context.emit("node.completed", node_id=node.id, summary=summary)
-    return f"Published. Node '{node.id}' complete."
+    # Collect published file names and previews
+    published_files = []
+    if published.exists():
+        for f in published.iterdir():
+            if f.is_file() and not f.name.startswith("_"):
+                preview = ""
+                try:
+                    preview = f.read_text()[:500]
+                except Exception:
+                    pass
+                published_files.append({"name": f.name, "path": f"nodes/{node.id}/published/{f.name}", "preview": preview})
+
+    # Emit event with file info
+    context.emit(
+        "node.completed",
+        node_id=node.id,
+        summary=summary,
+        published_files=[pf["path"] for pf in published_files],
+    )
+    return f"Published. Node '{node.id}' complete. Files: {[pf['name'] for pf in published_files]}"
 
 
 async def impl_checkpoint(context: ToolContext, summary: str) -> str:
@@ -193,6 +210,8 @@ async def impl_write_file(context: ToolContext, path: str, content: str) -> str:
     full_path = context.resolve_path(path)
     full_path.parent.mkdir(parents=True, exist_ok=True)
     full_path.write_text(content)
+    # Emit a file.written event so the frontend can show a link/preview
+    context.emit("file.written", path=path, size=len(content), preview=content[:500])
     return f"Written {len(content)} chars to {path}"
 
 
@@ -484,6 +503,7 @@ async def impl_spawn_worker(context: ToolContext, name: str, role: str, type: st
     worker = Worker(
         id=generate_id(),
         name=name,
+        role=role,
         type=type,
         model=model or context.default_model,
         max_iterations=max_iterations,

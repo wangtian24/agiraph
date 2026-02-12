@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+BE_PORT=8000
+FE_PORT=3000
+BE_PID_FILE="$DIR/.be.pid"
+FE_PID_FILE="$DIR/.fe.pid"
+
+be_running() { [ -f "$BE_PID_FILE" ] && kill -0 "$(cat "$BE_PID_FILE")" 2>/dev/null; }
+fe_running() { [ -f "$FE_PID_FILE" ] && kill -0 "$(cat "$FE_PID_FILE")" 2>/dev/null; }
+
+do_start() {
+  if be_running && fe_running; then
+    echo "Already running."
+    do_status
+    return
+  fi
+
+  # --- backend ---
+  if be_running; then
+    echo "Backend already running (pid $(cat "$BE_PID_FILE"))"
+  else
+    echo "Starting backend..."
+    cd "$DIR"
+    poetry run python -m agiraph.server > "$DIR/.be.log" 2>&1 &
+    echo $! > "$BE_PID_FILE"
+    cd - > /dev/null
+  fi
+
+  # --- frontend ---
+  if fe_running; then
+    echo "Frontend already running (pid $(cat "$FE_PID_FILE"))"
+  else
+    echo "Starting frontend..."
+    cd "$DIR/frontend"
+    npm run dev > "$DIR/.fe.log" 2>&1 &
+    echo $! > "$FE_PID_FILE"
+    cd - > /dev/null
+  fi
+
+  echo ""
+  echo "  Backend  → http://localhost:$BE_PORT"
+  echo "  Frontend → http://localhost:$FE_PORT"
+  echo ""
+  echo "Logs: .be.log / .fe.log"
+}
+
+do_kill() {
+  for label_pid in "Backend:$BE_PID_FILE" "Frontend:$FE_PID_FILE"; do
+    label="${label_pid%%:*}"
+    pidfile="${label_pid#*:}"
+    if [ -f "$pidfile" ]; then
+      pid=$(cat "$pidfile")
+      if kill -0 "$pid" 2>/dev/null; then
+        # kill the whole process group so child processes (uvicorn workers, next compiler) die too
+        kill -- -"$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+        echo "$label stopped (pid $pid)"
+      else
+        echo "$label was not running"
+      fi
+      rm -f "$pidfile"
+    else
+      echo "$label is not running"
+    fi
+  done
+}
+
+do_fe() {
+  echo "Starting frontend (foreground)..."
+  echo "  http://localhost:$FE_PORT"
+  echo ""
+  cd "$DIR/frontend"
+  exec npm run dev
+}
+
+do_be() {
+  echo "Starting backend (foreground)..."
+  echo "  http://localhost:$BE_PORT"
+  echo ""
+  cd "$DIR"
+  exec poetry run python -m agiraph.server
+}
+
+do_status() {
+  for label_pid in "Backend:$BE_PID_FILE:$BE_PORT" "Frontend:$FE_PID_FILE:$FE_PORT"; do
+    label="${label_pid%%:*}"
+    rest="${label_pid#*:}"
+    pidfile="${rest%%:*}"
+    port="${rest#*:}"
+    if [ -f "$pidfile" ] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
+      echo "  $label  ✓ running (pid $(cat "$pidfile")) → http://localhost:$port"
+    else
+      echo "  $label  ✗ stopped"
+      rm -f "$pidfile"
+    fi
+  done
+}
+
+case "${1:-}" in
+  start)
+    do_start
+    ;;
+  kill|stop)
+    do_kill
+    ;;
+  status)
+    do_status
+    ;;
+  "")
+    # no args: if both running show status, otherwise start
+    if be_running && fe_running; then
+      echo "Agiraph is running:"
+      do_status
+    else
+      do_start
+    fi
+    ;;
+  fe)
+    do_fe
+    ;;
+  be)
+    do_be
+    ;;
+  *)
+    echo "Usage: agi [start|kill|status|fe|be]"
+    exit 1
+    ;;
+esac

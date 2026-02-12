@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AgentSummary,
   BoardView,
@@ -12,6 +12,7 @@ import {
   getConversation,
   getWorkers,
   getEvents,
+  listAgents,
   createEventSocket,
 } from "@/lib/api";
 
@@ -24,7 +25,9 @@ export function useAgent(agentId: string) {
   const [workers, setWorkers] = useState<WorkerView[]>([]);
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
   const [events, setEvents] = useState<AgentEvent[]>([]);
+  const [allAgents, setAllAgents] = useState<AgentSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const seenEventTs = useRef<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
     try {
@@ -44,16 +47,39 @@ export function useAgent(agentId: string) {
     setLoading(false);
   }, [agentId]);
 
-  // Initial load
+  const refreshAllAgents = useCallback(async () => {
+    try {
+      setAllAgents(await listAgents());
+    } catch {}
+  }, []);
+
+  // Initial load — fetch existing events via HTTP before WebSocket connects
   useEffect(() => {
     refresh();
-  }, [refresh]);
+    refreshAllAgents();
+
+    // Backfill historical events
+    getEvents(agentId, 500).then((historical) => {
+      if (historical.length > 0) {
+        for (const ev of historical) {
+          seenEventTs.current.add(`${ev.type}:${ev.ts}`);
+        }
+        setEvents(historical);
+      }
+    }).catch(() => {});
+  }, [agentId, refresh, refreshAllAgents]);
 
   // Poll every 3 seconds
   useEffect(() => {
     const interval = setInterval(refresh, 3000);
     return () => clearInterval(interval);
   }, [refresh]);
+
+  // Poll all agents every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(refreshAllAgents, 5000);
+    return () => clearInterval(interval);
+  }, [refreshAllAgents]);
 
   // WebSocket for live events
   useEffect(() => {
@@ -63,7 +89,11 @@ export function useAgent(agentId: string) {
       ws.onmessage = (e) => {
         try {
           const event: AgentEvent = JSON.parse(e.data);
-          setEvents((prev) => [...prev.slice(-200), event]);
+          const key = `${event.type}:${event.ts}`;
+          // Deduplicate against historical events
+          if (seenEventTs.current.has(key)) return;
+          seenEventTs.current.add(key);
+          setEvents((prev) => [...prev.slice(-500), event]);
           // Refresh on important events
           if (
             event.type.startsWith("node.") ||
@@ -82,5 +112,5 @@ export function useAgent(agentId: string) {
     };
   }, [agentId, refresh]);
 
-  return { agent, board, workers, conversation, events, loading, refresh };
+  return { agent, board, workers, conversation, events, allAgents, loading, refresh };
 }
