@@ -16,6 +16,10 @@ import {
   createEventSocket,
 } from "@/lib/api";
 
+const POLL_OK = 3000;
+const POLL_ALL_OK = 5000;
+const POLL_ERR = 30000; // back off to 30s when backend is down
+
 /**
  * Hook to poll and subscribe to a single agent's state.
  */
@@ -27,7 +31,9 @@ export function useAgent(agentId: string) {
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [allAgents, setAllAgents] = useState<AgentSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [backendError, setBackendError] = useState<string | null>(null);
   const seenEventTs = useRef<Set<string>>(new Set());
+  const failCount = useRef(0);
 
   const refresh = useCallback(async () => {
     try {
@@ -41,8 +47,13 @@ export function useAgent(agentId: string) {
       setBoard(b);
       setWorkers(w);
       setConversation(c);
-    } catch (err) {
-      console.error("Failed to refresh agent:", err);
+      failCount.current = 0;
+      setBackendError(null);
+    } catch {
+      failCount.current++;
+      if (failCount.current >= 2) {
+        setBackendError("Backend unreachable — is the server running? Check config.toml for port config.");
+      }
     }
     setLoading(false);
   }, [agentId]);
@@ -69,20 +80,36 @@ export function useAgent(agentId: string) {
     }).catch(() => {});
   }, [agentId, refresh, refreshAllAgents]);
 
-  // Poll every 3 seconds
+  // Poll with backoff: 3s when healthy, 30s when backend is down
   useEffect(() => {
-    const interval = setInterval(refresh, 3000);
-    return () => clearInterval(interval);
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      refresh().then(() => {
+        const delay = failCount.current >= 2 ? POLL_ERR : POLL_OK;
+        timer = setTimeout(tick, delay);
+      });
+    };
+    timer = setTimeout(tick, POLL_OK);
+    return () => clearTimeout(timer);
   }, [refresh]);
 
-  // Poll all agents every 5 seconds
+  // Poll all agents with same backoff
   useEffect(() => {
-    const interval = setInterval(refreshAllAgents, 5000);
-    return () => clearInterval(interval);
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      refreshAllAgents().then(() => {
+        const delay = failCount.current >= 2 ? POLL_ERR : POLL_ALL_OK;
+        timer = setTimeout(tick, delay);
+      });
+    };
+    timer = setTimeout(tick, POLL_ALL_OK);
+    return () => clearTimeout(timer);
   }, [refreshAllAgents]);
 
-  // WebSocket for live events
+  // WebSocket for live events — skip when backend is known down
   useEffect(() => {
+    if (failCount.current >= 2) return;
+
     let ws: WebSocket;
     try {
       ws = createEventSocket(agentId);
@@ -90,11 +117,9 @@ export function useAgent(agentId: string) {
         try {
           const event: AgentEvent = JSON.parse(e.data);
           const key = `${event.type}:${event.ts}`;
-          // Deduplicate against historical events
           if (seenEventTs.current.has(key)) return;
           seenEventTs.current.add(key);
           setEvents((prev) => [...prev.slice(-500), event]);
-          // Refresh on important events
           if (
             event.type.startsWith("node.") ||
             event.type.startsWith("worker.") ||
@@ -110,7 +135,7 @@ export function useAgent(agentId: string) {
     return () => {
       if (ws) ws.close();
     };
-  }, [agentId, refresh]);
+  }, [agentId, refresh, backendError]);
 
-  return { agent, board, workers, conversation, events, allAgents, loading, refresh };
+  return { agent, board, workers, conversation, events, allAgents, loading, backendError, refresh };
 }

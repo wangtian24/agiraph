@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "predev": "node load-config.mjs",
+    "dev": "next dev --port ${PORT:-3000}",
+    "prebuild": "node load-config.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

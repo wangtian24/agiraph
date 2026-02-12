@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AgentSummary, createAgent, listAgents, deleteAgent } from "@/lib/api";
 
@@ -16,6 +16,9 @@ const ALL_MODELS = [
   { id: "claude-code/haiku", label: "Claude Code (Haiku)", provider: "Claude Code" },
 ];
 
+const POLL_OK = 5000;
+const POLL_ERR = 30000;
+
 export default function Home() {
   const router = useRouter();
   const [agents, setAgents] = useState<AgentSummary[]>([]);
@@ -23,17 +26,32 @@ export default function Home() {
   const [model, setModel] = useState("anthropic/claude-sonnet-4-5");
   const mode = "finite"; // Simplified — always finite
   const [creating, setCreating] = useState(false);
+  const [backendError, setBackendError] = useState<string | null>(null);
+  const failCount = useRef(0);
 
   const refresh = async () => {
     try {
       setAgents(await listAgents());
-    } catch {}
+      failCount.current = 0;
+      setBackendError(null);
+    } catch {
+      failCount.current++;
+      if (failCount.current >= 2) {
+        setBackendError("Backend unreachable — is the server running? Check config.toml for port config.");
+      }
+    }
   };
 
   useEffect(() => {
     refresh();
-    const interval = setInterval(refresh, 5000);
-    return () => clearInterval(interval);
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      refresh().then(() => {
+        timer = setTimeout(tick, failCount.current >= 2 ? POLL_ERR : POLL_OK);
+      });
+    };
+    timer = setTimeout(tick, POLL_OK);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleCreate = async () => {
@@ -69,6 +87,12 @@ export default function Home() {
     <div className="max-w-4xl mx-auto py-12 px-4">
       <h1 className="text-3xl font-bold mb-2 text-gray-900">Agiraph</h1>
       <p className="text-gray-500 mb-8">Autonomous AI Agent Framework</p>
+
+      {backendError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-sm text-red-700">
+          {backendError}
+        </div>
+      )}
 
       {/* Create Agent */}
       <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-6 mb-8">

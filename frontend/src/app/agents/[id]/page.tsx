@@ -88,7 +88,7 @@ function SidebarTeamMember({ name, role, status, model }: { name: string; role: 
 
 export default function AgentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: agentId } = use(params);
-  const { agent, conversation, events, workers, allAgents, loading } = useAgent(agentId);
+  const { agent, conversation, events, workers, allAgents, loading, backendError } = useAgent(agentId);
   const [tab, setTab] = useState<Tab>("chat");
   const [messageInput, setMessageInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -145,6 +145,17 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-gray-400">Loading agent...</div>
+      </div>
+    );
+  }
+
+  if (!agent && backendError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md text-center">
+          <div className="text-red-700 text-sm">{backendError}</div>
+          <p className="text-gray-500 text-xs mt-2">Run: <code>poetry run python -m agiraph.server</code></p>
+        </div>
       </div>
     );
   }

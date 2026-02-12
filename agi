@@ -2,8 +2,12 @@
 set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-BE_PORT=8000
-FE_PORT=3000
+
+# Read ports from config.toml (single source of truth)
+BE_PORT=$(grep -A5 '^\[server\]' "$DIR/config.toml" | grep '^port' | head -1 | sed 's/[^0-9]//g')
+FE_PORT=$(grep -A5 '^\[frontend\]' "$DIR/config.toml" | grep '^port' | head -1 | sed 's/[^0-9]//g')
+BE_PORT="${BE_PORT:-8011}"
+FE_PORT="${FE_PORT:-3011}"
 BE_PID_FILE="$DIR/.be.pid"
 FE_PID_FILE="$DIR/.fe.pid"
 
@@ -34,7 +38,7 @@ do_start() {
   else
     echo "Starting frontend..."
     cd "$DIR/frontend"
-    npm run dev > "$DIR/.fe.log" 2>&1 &
+    PORT=$FE_PORT npm run dev > "$DIR/.fe.log" 2>&1 &
     echo $! > "$FE_PID_FILE"
     cd - > /dev/null
   fi
@@ -71,7 +75,7 @@ do_fe() {
   echo "  http://localhost:$FE_PORT"
   echo ""
   cd "$DIR/frontend"
-  exec npm run dev
+  PORT=$FE_PORT exec npm run dev
 }
 
 do_be() {
@@ -104,6 +108,11 @@ case "${1:-}" in
   kill|stop)
     do_kill
     ;;
+  restart)
+    do_kill
+    sleep 1
+    do_start
+    ;;
   status)
     do_status
     ;;
@@ -123,7 +132,7 @@ case "${1:-}" in
     do_be
     ;;
   *)
-    echo "Usage: agi [start|kill|status|fe|be]"
+    echo "Usage: agi [start|kill|restart|status|fe|be]"
     exit 1
     ;;
 esac
