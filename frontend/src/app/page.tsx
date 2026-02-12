@@ -46,23 +46,23 @@ export default function Home() {
   };
 
   const statusColor: Record<string, string> = {
-    idle: "bg-gray-500",
+    idle: "bg-gray-400",
     working: "bg-blue-500 animate-pulse",
     waiting_for_human: "bg-yellow-500",
     completed: "bg-green-500",
-    paused: "bg-orange-500",
+    paused: "bg-orange-400",
   };
 
   return (
     <div className="max-w-4xl mx-auto py-12 px-4">
-      <h1 className="text-3xl font-bold mb-2">Agiraph</h1>
-      <p className="text-gray-400 mb-8">Autonomous AI Agent Framework</p>
+      <h1 className="text-3xl font-bold mb-2 text-gray-900">Agiraph</h1>
+      <p className="text-gray-500 mb-8">Autonomous AI Agent Framework</p>
 
       {/* Create Agent */}
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-8">
-        <h2 className="text-lg font-semibold mb-4">New Agent</h2>
+      <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-6 mb-8">
+        <h2 className="text-lg font-semibold mb-4 text-gray-800">New Agent</h2>
         <textarea
-          className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-sm mb-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full bg-white border border-gray-300 rounded-lg p-3 text-sm mb-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-800 placeholder-gray-400"
           rows={3}
           placeholder="What's the goal? e.g. 'Research the competitive landscape of AI hardware companies'"
           value={goal}
@@ -73,7 +73,7 @@ export default function Home() {
         />
         <div className="flex gap-3 items-center">
           <select
-            className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm"
+            className="bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-700"
             value={model}
             onChange={(e) => setModel(e.target.value)}
           >
@@ -84,7 +84,7 @@ export default function Home() {
             <option value="openai/o3-mini">o3-mini</option>
           </select>
           <select
-            className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm"
+            className="bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-700"
             value={mode}
             onChange={(e) => setMode(e.target.value)}
           >
@@ -92,7 +92,7 @@ export default function Home() {
             <option value="infinite">Infinite (ongoing)</option>
           </select>
           <button
-            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm font-medium disabled:opacity-50"
+            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm font-medium text-white disabled:opacity-50"
             onClick={handleCreate}
             disabled={creating || !goal.trim()}
           >
@@ -104,31 +104,31 @@ export default function Home() {
       {/* Agent List */}
       <div className="space-y-3">
         {agents.length === 0 && (
-          <p className="text-gray-500 text-center py-8">No agents yet. Create one above.</p>
+          <p className="text-gray-400 text-center py-8">No agents yet. Create one above.</p>
         )}
         {agents.map((a) => (
           <div
             key={a.id}
-            className="bg-gray-900 border border-gray-800 rounded-lg p-4 hover:border-gray-700 cursor-pointer transition-colors"
+            className="bg-white border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-sm cursor-pointer transition-all"
             onClick={() => router.push(`/agents/${a.id}`)}
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className={`w-2 h-2 rounded-full ${statusColor[a.status] || "bg-gray-500"}`} />
-                  <span className="text-sm font-medium text-gray-300">{a.status}</span>
-                  <span className="text-xs text-gray-500">{a.mode}</span>
-                  <span className="text-xs text-gray-600">{a.id}</span>
+                  <span className={`w-2 h-2 rounded-full ${statusColor[a.status] || "bg-gray-400"}`} />
+                  <span className="text-sm font-medium text-gray-600">{a.status}</span>
+                  <span className="text-xs text-gray-400">{a.mode}</span>
+                  <span className="text-xs text-gray-300">{a.id}</span>
                 </div>
-                <p className="text-sm">{a.goal}</p>
-                <div className="flex gap-4 mt-2 text-xs text-gray-500">
+                <p className="text-sm text-gray-800">{a.goal}</p>
+                <div className="flex gap-4 mt-2 text-xs text-gray-400">
                   <span>{a.node_count} nodes</span>
                   <span>{a.worker_count} workers</span>
                   <span>{a.model}</span>
                 </div>
               </div>
               <button
-                className="text-gray-600 hover:text-red-400 text-sm px-2"
+                className="text-gray-300 hover:text-red-500 text-sm px-2"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDelete(a.id);

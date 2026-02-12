@@ -78,7 +78,7 @@ prompts.log
 storage/
 
 # Agent runtime data (created at runtime, not committed)
-agents/
+/agents/
 
 # JSON files (except package manifests and config)
 *.json
