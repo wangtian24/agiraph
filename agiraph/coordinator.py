@@ -73,6 +73,8 @@ class Coordinator:
 
         # Main loop
         max_coordinator_turns = 200
+        consecutive_errors = 0
+        max_consecutive_errors = 5
         for turn in range(max_coordinator_turns):
             if self.finished:
                 break
@@ -117,12 +119,32 @@ class Coordinator:
                     system=system,
                     max_tokens=4096,
                 )
+                consecutive_errors = 0  # reset on success
             except Exception as e:
-                logger.error(f"Coordinator LLM call failed: {e}")
+                consecutive_errors += 1
+                backoff = min(3 * (2 ** (consecutive_errors - 1)), 60)  # 3s, 6s, 12s, 24s, 48s, 60s
+                logger.error(f"Coordinator LLM call failed ({consecutive_errors}/{max_consecutive_errors}): {e}")
                 self.agent.event_bus.emit_simple(
                     "tool.error", self.agent.id, error=str(e), source="coordinator"
                 )
-                await asyncio.sleep(3)
+                if consecutive_errors >= max_consecutive_errors:
+                    logger.error(f"Coordinator giving up after {max_consecutive_errors} consecutive LLM errors")
+                    self.agent.status = "waiting_for_human"
+                    self.agent.conversation_log.append({
+                        "role": "coordinator",
+                        "content": f"[Error] LLM provider failed {max_consecutive_errors} times in a row. Pausing until you send a message. Last error: {e}",
+                        "ts": time.time(),
+                    })
+                    # Wait for human input before retrying
+                    self._human_wakeup.clear()
+                    try:
+                        await asyncio.wait_for(self._human_wakeup.wait(), timeout=300.0)
+                    except asyncio.TimeoutError:
+                        pass
+                    consecutive_errors = 0
+                    self.agent.status = "working"
+                else:
+                    await asyncio.sleep(backoff)
                 continue
 
             # Add to conversation

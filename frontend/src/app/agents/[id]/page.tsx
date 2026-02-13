@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { use, useState, useRef, useEffect, useMemo, useCallback, memo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
@@ -749,7 +749,7 @@ function EventFlowPanel({
 // GroupBlock — a group of log entries from same source
 // =============================================================================
 
-function GroupBlock({ group, sourceInfo, onFileLink }: { group: LogGroup; sourceInfo: Record<string, { name: string; role: string }>; onFileLink: () => void }) {
+const GroupBlock = memo(function GroupBlock({ group, sourceInfo, onFileLink }: { group: LogGroup; sourceInfo: Record<string, { name: string; role: string }>; onFileLink: () => void }) {
   const borderColor = getSourceColor(group.source);
   const info = sourceInfo[group.source];
   const label = info ? (info.role ? `${info.name} (${info.role})` : info.name) : getSourceLabel(group.source);
@@ -782,7 +782,7 @@ function GroupBlock({ group, sourceInfo, onFileLink }: { group: LogGroup; source
       </div>
     </div>
   );
-}
+});
 
 // =============================================================================
 // LogLine — single log entry
@@ -810,7 +810,7 @@ const tagBg: Record<string, string> = {
   warn: "bg-amber-900/40 text-amber-300",
 };
 
-function LogLine({ entry, onFileLink }: { entry: LogEntry; onFileLink: () => void }) {
+const LogLine = memo(function LogLine({ entry, onFileLink }: { entry: LogEntry; onFileLink: () => void }) {
   // Auto-expand tool results so users always see what happened
   const autoExpand = entry.level === "result" || entry.level === "error";
   const [expanded, setExpanded] = useState(autoExpand);
@@ -879,7 +879,7 @@ function LogLine({ entry, onFileLink }: { entry: LogEntry; onFileLink: () => voi
       )}
     </div>
   );
-}
+});
 
 // =============================================================================
 // TeamPanel (Tab 2) — coordinator + workers with human names
